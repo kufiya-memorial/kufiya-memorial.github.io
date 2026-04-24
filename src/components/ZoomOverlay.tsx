@@ -21,7 +21,9 @@ export function ZoomOverlay() {
           exit={{ opacity: 0 }}
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
           className="absolute inset-0 flex items-center justify-center bg-transparent"
-          style={{ pointerEvents: 'auto', zIndex: 8 }}
+          style={{ pointerEvents: 'auto', zIndex: 8, touchAction: 'none' }}
+          onTouchStart={(e) => e.preventDefault()}
+          onTouchMove={(e) => e.preventDefault()}
         >
           <motion.p
             initial={{ opacity: 0, y: 10 }}

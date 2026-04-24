@@ -99,12 +99,11 @@ export function computeLayout(
   }
 
   // Step 3: Fade out core overflow at the bottom-right.
-  // If there are X extra core slots beyond realCount, take the last 2X
-  // core slots and alternate: keep, ghost, keep, ghost — creating a
-  // gradual density fade instead of a hard cutoff.
+  // Use a gradual density approach: divide the fade zone into bands,
+  // with decreasing density toward the end.
   const coreOverflow = coreCols * rows - realCount;
   if (coreOverflow > 0) {
-    const fadeZone = coreOverflow * 2;
+    const fadeZone = Math.min(coreOverflow * 3, coreCols * rows);
     // Collect core slot indices in order (top-left to bottom-right)
     const coreSlots: number[] = [];
     for (let i = 0; i < totalSlots; i++) {
@@ -113,11 +112,24 @@ export function computeLayout(
         coreSlots.push(i);
       }
     }
-    // Take the last fadeZone slots and ghost every other one
+    // Ghost slots from the end, with increasing probability toward the tail
     const fadeStart = Math.max(0, coreSlots.length - fadeZone);
     let ghosted = 0;
-    for (let i = fadeStart; i < coreSlots.length; i++) {
-      if (i % 2 === 1) {
+    for (let i = fadeStart; i < coreSlots.length && ghosted < coreOverflow; i++) {
+      // Progress 0→1 through the fade zone
+      const progress = (i - fadeStart) / Math.max(fadeZone - 1, 1);
+      // Ghost probability increases with progress: sparse at start, dense at end
+      const ghostProb = progress * progress;
+      // Use deterministic pattern based on index to avoid randomness
+      const hash = ((coreSlots[i] * 2654435761) >>> 0) / 4294967296;
+      if (hash < ghostProb && ghosted < coreOverflow) {
+        ghostIndices.add(coreSlots[i]);
+        ghosted++;
+      }
+    }
+    // If we didn't ghost enough, fill from the end
+    for (let i = coreSlots.length - 1; i >= fadeStart && ghosted < coreOverflow; i--) {
+      if (!ghostIndices.has(coreSlots[i])) {
         ghostIndices.add(coreSlots[i]);
         ghosted++;
       }
