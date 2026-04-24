@@ -14,9 +14,10 @@ export function CameraControls({ visible }: Props) {
   const controlsRef = useRef<any>(null)
   const { camera, size } = useThree()
   const rawProfiles = useMemorialStore((s) => s.rawProfiles)
+  const setZoomComplete = useMemorialStore((s) => s.setZoomComplete)
   const count = rawProfiles.length
   const hasSetup = useRef(false)
-  const animState = useRef<'idle' | 'waiting' | 'zooming'>('idle')
+  const animState = useRef<'idle' | 'waiting' | 'zooming' | 'done'>('idle')
   const waitStart = useRef(0)
   const maxZRef = useRef(500)
   const targetZRef = useRef(0)
@@ -38,34 +39,18 @@ export function CameraControls({ visible }: Props) {
     const fovRad = (cam.fov * Math.PI) / 180
     const halfTan = Math.tan(fovRad / 2)
 
-    // The canvas is fullscreen but the lattice should fill only the area
-    // between header and border. The fraction of screen height available:
     const availH = size.height - HEADER_PX - BORDER_PX
     const availFrac = availH / size.height
 
-    // At distance Z, the camera sees:
-    //   visibleH_total = 2 * Z * halfTan
-    //   visibleW_total = visibleH_total * aspect
-    // The lattice should fill the available portion:
-    //   latticeH = visibleH_total * availFrac → Z = latticeH / (2 * halfTan * availFrac)
-    //   latticeW = visibleW_total             → Z = latticeW / (2 * halfTan * aspect)
     const zH = latticeH / (2 * halfTan * availFrac)
     const zW = latticeW / (2 * halfTan * aspect)
-    // Use the tighter fit (smaller Z = more zoomed in = fills screen)
     const fullZ = Math.min(zW, zH)
 
-    // Offset camera Y so lattice sits between header and border
-    // Header is at top of screen, border at bottom.
-    // The available area center is offset from screen center by:
-    //   (HEADER_PX - BORDER_PX) / 2 pixels downward
-    // Convert to world units at this Z:
     const totalVisH = 2 * fullZ * halfTan
     const yOffset = ((HEADER_PX - BORDER_PX) / 2 / size.height) * totalVisH
 
-    console.log('[CAMERA] zW=', zW.toFixed(2), 'zH=', zH.toFixed(2), 'fullZ=', fullZ.toFixed(2),
-      'availFrac=', availFrac.toFixed(3), 'yOffset=', yOffset.toFixed(2))
-
-    const startZ = fullZ * 0.45
+    // Start very zoomed in — pips clearly visible, feels like a real kufiya
+    const startZ = fullZ * 0.15
     camera.position.set(cx, cy - yOffset, startZ)
 
     targetZRef.current = fullZ
@@ -92,20 +77,23 @@ export function CameraControls({ visible }: Props) {
     const controls = controlsRef.current
     if (!controls || !hasSetup.current) return
 
+    // Wait 2s at zoomed-in view
     if (animState.current === 'waiting') {
-      if (performance.now() - waitStart.current > 1500) {
+      if (performance.now() - waitStart.current > 2000) {
         animState.current = 'zooming'
       }
     }
 
+    // Slow zoom out
     if (animState.current === 'zooming') {
       const z = camera.position.z
       const target = targetZRef.current
       if (z < target - 0.3) {
-        camera.position.z = MathUtils.lerp(z, target, 0.01)
+        camera.position.z = MathUtils.lerp(z, target, 0.008)
       } else {
         camera.position.z = target
-        animState.current = 'idle'
+        animState.current = 'done'
+        setZoomComplete(true)
       }
       controls.update()
     }

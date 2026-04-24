@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { ShaderMaterial } from 'three'
+import { ShaderMaterial, Mesh } from 'three'
 
 const vertexShader = `
   varying vec2 vUv;
@@ -15,19 +15,19 @@ const fragmentShader = `
   varying vec2 vUv;
 
   void main() {
-    // Primary diagonal sweep — slow, wide, soft
+    // Primary diagonal sweep
     float sweep1 = vUv.x + vUv.y;
-    float t1 = mod(uTime * 0.08, 3.5);
-    float g1 = smoothstep(0.25, 0.0, abs(sweep1 - t1)) * 0.08;
+    float t1 = mod(uTime * 0.1, 3.5);
+    float g1 = smoothstep(0.3, 0.0, abs(sweep1 - t1)) * 0.18;
 
-    // Secondary sweep — opposite direction, faster, narrower
+    // Secondary sweep — opposite direction
     float sweep2 = vUv.x - vUv.y + 1.0;
-    float t2 = mod(uTime * 0.12 + 1.5, 3.5);
-    float g2 = smoothstep(0.12, 0.0, abs(sweep2 - t2)) * 0.05;
+    float t2 = mod(uTime * 0.14 + 1.5, 3.5);
+    float g2 = smoothstep(0.2, 0.0, abs(sweep2 - t2)) * 0.12;
 
-    // Subtle sparkle noise
+    // Subtle sparkle
     float n = fract(sin(dot(vUv * 200.0, vec2(12.9898, 78.233)) + uTime * 0.3) * 43758.5453);
-    float sparkle = step(0.997, n) * 0.15;
+    float sparkle = step(0.995, n) * 0.25;
 
     float alpha = g1 + g2 + sparkle;
     gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
@@ -35,17 +35,23 @@ const fragmentShader = `
 `
 
 export function GlimmerEffect() {
+  const meshRef = useRef<Mesh>(null)
   const matRef = useRef<ShaderMaterial>(null)
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = clock.getElapsedTime()
+    }
+    // Follow the camera so the glimmer always covers the visible area
+    if (meshRef.current) {
+      meshRef.current.position.x = camera.position.x
+      meshRef.current.position.y = camera.position.y
     }
   })
 
   return (
-    <mesh position={[0, 0, 0.01]} renderOrder={999}>
-      <planeGeometry args={[300, 300]} />
+    <mesh ref={meshRef} position={[0, 0, 0.01]} renderOrder={999}>
+      <planeGeometry args={[1000, 1000]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={vertexShader}

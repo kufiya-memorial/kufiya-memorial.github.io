@@ -60,7 +60,6 @@ export function LatticeMesh() {
   const { transforms } = layoutResult
   const totalSlots = transforms.length
 
-  // Precompute slot→profileIndex mapping (O(n) once, instead of O(n) per lookup)
   const slotToProfile = useMemo(() => {
     const map = new Int32Array(totalSlots)
     let realIdx = 0
@@ -77,7 +76,6 @@ export function LatticeMesh() {
   const geometry = useMemo(() => makeEllipse(PIP_RX, PIP_RY), [])
   const material = useMemo(() => new MeshBasicMaterial({ side: DoubleSide, color: 0xffffff }), [])
 
-  // Set up instance matrices — only when transforms change (not on filter change)
   useEffect(() => {
     const mesh = meshRef.current
     if (!mesh || totalSlots === 0) return
@@ -101,7 +99,6 @@ export function LatticeMesh() {
     mesh.computeBoundingSphere()
   }, [transforms, totalSlots])
 
-  // Update colors — separate effect so filtering is fast (no matrix recomputation)
   useEffect(() => {
     const mesh = meshRef.current
     if (!mesh || totalSlots === 0) return
@@ -163,7 +160,6 @@ export function LatticeMesh() {
       e.stopPropagation()
       const profile = rawProfiles[profileIdx]
       if (!profile) return
-      // Don't open modal for filtered-out pips
       if (!matchesFilter(profile, filters)) return
       setActiveProfile(profile)
     },

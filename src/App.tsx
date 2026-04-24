@@ -7,6 +7,8 @@ import { StatsPopup } from './components/StatsPopup'
 import { LatticeMesh } from './components/LatticeMesh'
 import { LatticeLines } from './components/LatticeLines'
 import { CameraControls } from './components/CameraControls'
+import { GlimmerEffect } from './components/GlimmerEffect'
+import { ZoomOverlay } from './components/ZoomOverlay'
 import { TopHeader } from './components/TopHeader'
 import { ProfileModal } from './components/ProfileModal'
 import { BorderOverlay } from './components/BorderOverlay'
@@ -49,6 +51,7 @@ function App() {
           <Canvas camera={{ near: 0.1, far: 2000, fov: 75 }}>
             <LatticeMesh />
             <LatticeLines />
+            <GlimmerEffect />
             <CameraControls visible={hasExplored} />
           </Canvas>
         </div>
@@ -71,6 +74,9 @@ function App() {
           <PageChrome />
         </div>
       )}
+
+      {/* Zoom overlay — blocks interaction during zoom-out */}
+      {hasExplored && <ZoomOverlay />}
 
       {/* Overlay screens */}
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>

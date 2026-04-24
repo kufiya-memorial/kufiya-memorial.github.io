@@ -41,11 +41,13 @@ export interface MemorialStore {
   appState: AppState;
   isLoading: boolean;
   error: string | null;
+  zoomComplete: boolean;
 
   fetchProfiles: () => Promise<void>;
   setFilters: (filters: Partial<Filters>) => void;
   setActiveProfile: (profile: Profile | null) => void;
   setAppState: (state: AppState) => void;
+  setZoomComplete: (v: boolean) => void;
 }
 
 const DATA_URL = 'https://data.techforpalestine.org/api/v3/killed-in-gaza.min.json';
@@ -72,6 +74,7 @@ export const useMemorialStore = create<MemorialStore>((set) => ({
   appState: 'LANDING',
   isLoading: false,
   error: null,
+  zoomComplete: false,
 
   fetchProfiles: async () => {
     set({ isLoading: true, error: null });
@@ -126,4 +129,5 @@ export const useMemorialStore = create<MemorialStore>((set) => ({
 
   setActiveProfile: (profile) => set({ activeProfile: profile }),
   setAppState: (appState) => set({ appState }),
+  setZoomComplete: (v) => set({ zoomComplete: v }),
 }));
