@@ -26,7 +26,7 @@ function StatsPanel({ gaza, onClose }: { gaza: GazaSummary; onClose: () => void 
           className="bg-white rounded-2xl p-6 w-[540px] max-w-[90vw] text-black shadow-lg border border-black/5 mx-4 max-h-[80vh] overflow-y-auto"
           style={{ pointerEvents: 'auto' }}>
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-lg font-medium tracking-tight">Israel's war on Gaza, in numbers</h2>
+            <h2 className="text-lg font-medium tracking-tight">Israel's genocide in Gaza</h2>
             <button onClick={onClose} className="text-black/30 hover:text-black text-lg leading-none transition-colors cursor-pointer">✕</button>
           </div>
           <p className="text-[11px] uppercase tracking-[0.15em] text-black/35 font-medium mb-1">Last updated</p>
@@ -80,15 +80,19 @@ export function TopHeader() {
   const totalKilled = useMemorialStore((s) => s.gazaSummary?.killed.total ?? s.rawProfiles.length)
   const rawProfiles = useMemorialStore((s) => s.rawProfiles)
 
-  const isFiltered = filters.sex !== 'all' || filters.ageRange.min > 0 || filters.ageRange.max < 100
+  const isFiltered = filters.sex !== 'all' || filters.ageRange.min > 0 || filters.ageRange.max < 120
   const filteredCount = isFiltered
-    ? rawProfiles.filter((p) => matchesFilter(p, filters)).length
+    ? rawProfiles.filter((p) => {
+        // Exclude padded "Unknown" profiles from the count unless 'unknown' sex filter is active
+        if (p.id.startsWith('unknown-') && filters.sex !== 'unknown') return false
+        return matchesFilter(p, filters)
+      }).length
     : totalKilled
 
   return (
     <>
       <div
-        className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-sm flex flex-col"
+        className="fixed top-0 left-0 w-full bg-white flex flex-col"
         style={{ pointerEvents: 'auto', zIndex: 10 }}
       >
         <div className="flex items-center justify-between px-5 h-14">
@@ -114,22 +118,25 @@ export function TopHeader() {
             {gazaSummary && (
               <button
                 onClick={() => setStatsOpen(true)}
-                className="px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer bg-black/5 text-black/60 hover:bg-black/10"
+                className="px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer bg-black/5 text-black/60 hover:bg-black/10 flex items-center gap-1.5"
               >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
                 Stats
               </button>
             )}
             <button
               onClick={() => setFilterOpen(!filterOpen)}
-              className="px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer bg-black/5 text-black/60 hover:bg-black/10"
+              className="px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer bg-black/5 text-black/60 hover:bg-black/10 flex items-center gap-1.5"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               Filter
             </button>
             <button
               onClick={() => setInfoOpen(true)}
               className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center text-black/50 hover:text-black hover:bg-black/10 transition-all duration-200 cursor-pointer"
+              aria-label="Info"
             >
-              <span className="text-sm font-medium">i</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             </button>
           </div>
         </div>
@@ -155,26 +162,47 @@ export function TopHeader() {
               <div className="mb-4">
                 <label className="block text-[11px] uppercase tracking-[0.15em] text-black/40 font-medium mb-2">Age Range</label>
                 <div className="flex items-center gap-2">
-                  <input type="number" min={0} max={100} value={filters.ageRange.min}
+                  <input type="number" min={0} max={120} value={filters.ageRange.min}
                     onChange={(e) => setFilters({ ageRange: { ...filters.ageRange, min: Math.max(0, Number(e.target.value)) } })}
-                    className="w-16 px-2 py-1.5 border border-black/10 bg-white text-black text-sm rounded-lg focus:outline-none focus:border-black/30" />
+                    disabled={filters.sex === 'unknown'}
+                    className={`w-16 px-2 py-1.5 border border-black/10 text-sm rounded-lg focus:outline-none focus:border-black/30 ${filters.sex === 'unknown' ? 'bg-black/5 text-black/30 cursor-not-allowed' : 'bg-white text-black'}`} />
                   <span className="text-xs text-black/30">—</span>
-                  <input type="number" min={0} max={100} value={filters.ageRange.max}
-                    onChange={(e) => setFilters({ ageRange: { ...filters.ageRange, max: Math.min(100, Number(e.target.value)) } })}
-                    className="w-16 px-2 py-1.5 border border-black/10 bg-white text-black text-sm rounded-lg focus:outline-none focus:border-black/30" />
+                  <input type="number" min={0} max={120} value={filters.ageRange.max}
+                    onChange={(e) => setFilters({ ageRange: { ...filters.ageRange, max: Math.min(120, Number(e.target.value)) } })}
+                    disabled={filters.sex === 'unknown'}
+                    className={`w-16 px-2 py-1.5 border border-black/10 text-sm rounded-lg focus:outline-none focus:border-black/30 ${filters.sex === 'unknown' ? 'bg-black/5 text-black/30 cursor-not-allowed' : 'bg-white text-black'}`} />
                 </div>
               </div>
               <div>
                 <label className="block text-[11px] uppercase tracking-[0.15em] text-black/40 font-medium mb-2">Sex</label>
                 <div className="flex gap-1">
                   {(['all', 'm', 'f', 'unknown'] as const).map((v) => (
-                    <button key={v} onClick={() => setFilters({ sex: v })}
+                    <button key={v} onClick={() => {
+                      if (v === 'unknown') {
+                        setFilters({ sex: v, ageRange: { min: 0, max: 120 } })
+                      } else {
+                        setFilters({ sex: v })
+                      }
+                    }}
                       className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 cursor-pointer ${filters.sex === v ? 'bg-black text-white' : 'bg-black/5 text-black/60 hover:bg-black/10'}`}>
                       {v === 'all' ? 'All' : v === 'm' ? 'Male' : v === 'f' ? 'Female' : 'Unknown'}
                     </button>
                   ))}
                 </div>
               </div>
+              {isFiltered && (
+                <div className="mt-4 pt-3 border-t border-black/10">
+                  <button
+                    onClick={() => {
+                      setFilters({ ageRange: { min: 0, max: 120 }, sex: 'all' })
+                      setFilterOpen(false)
+                    }}
+                    className="w-full py-2 text-xs font-medium text-black/60 bg-black/5 hover:bg-black/10 rounded-lg transition-all duration-200 cursor-pointer"
+                  >
+                    Reset filters
+                  </button>
+                </div>
+              )}
             </motion.div>
           </>
         )}

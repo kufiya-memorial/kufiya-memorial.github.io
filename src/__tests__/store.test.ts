@@ -15,7 +15,7 @@ describe('useMemorialStore', () => {
   beforeEach(() => {
     useMemorialStore.setState({
       rawProfiles: [],
-      filters: { ageRange: { min: 0, max: 100 }, sex: 'all' },
+      filters: { ageRange: { min: 0, max: 120 }, sex: 'all' },
       activeProfile: null,
       appState: 'LANDING',
       isLoading: false,
@@ -30,7 +30,7 @@ describe('useMemorialStore', () => {
 
     it('has default filters', () => {
       const { filters } = useMemorialStore.getState();
-      expect(filters.ageRange).toEqual({ min: 0, max: 100 });
+      expect(filters.ageRange).toEqual({ min: 0, max: 120 });
       expect(filters.sex).toBe('all');
     });
 
@@ -58,7 +58,7 @@ describe('useMemorialStore', () => {
     it('updates sex partially', () => {
       useMemorialStore.getState().setFilters({ sex: 'f' });
       expect(useMemorialStore.getState().filters.sex).toBe('f');
-      expect(useMemorialStore.getState().filters.ageRange).toEqual({ min: 0, max: 100 });
+      expect(useMemorialStore.getState().filters.ageRange).toEqual({ min: 0, max: 120 });
     });
 
     it('updates both filters at once', () => {

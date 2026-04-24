@@ -60,14 +60,23 @@ export function LatticeMesh() {
   const { transforms } = layoutResult
   const totalSlots = transforms.length
 
+  // Assign profiles: core non-ghost slots first, then band non-ghost slots
   const slotToProfile = useMemo(() => {
-    const map = new Int32Array(totalSlots)
-    let realIdx = 0
+    const map = new Int32Array(totalSlots).fill(-1)
+    let profileIdx = 0
+
+    // First pass: core slots get profiles
     for (let i = 0; i < totalSlots; i++) {
-      if (transforms[i].isGhost) {
-        map[i] = -1
-      } else {
-        map[i] = realIdx++
+      if (transforms[i].isGhost) continue
+      if (transforms[i].isCore) {
+        map[i] = profileIdx++
+      }
+    }
+    // Second pass: band non-ghost slots get remaining profiles (if any)
+    for (let i = 0; i < totalSlots; i++) {
+      if (transforms[i].isGhost) continue
+      if (!transforms[i].isCore) {
+        map[i] = profileIdx++
       }
     }
     return map
@@ -160,10 +169,10 @@ export function LatticeMesh() {
       e.stopPropagation()
       const profile = rawProfiles[profileIdx]
       if (!profile) return
-      if (!matchesFilter(profile, filters)) return
+      // Allow clicking any pip that has a real profile (even filtered-out ones)
       setActiveProfile(profile)
     },
-    [rawProfiles, setActiveProfile, slotToProfile, filters],
+    [rawProfiles, setActiveProfile, slotToProfile],
   )
 
   if (totalSlots === 0) return null

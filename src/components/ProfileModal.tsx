@@ -25,11 +25,13 @@ export function ProfileModal() {
 
   // Mercy prayer based on sex
   const mercyArabic =
-    activeProfile.sex === 'f' ? 'الله يرحمها' : 'الله يرحمه'
-  const mercyEnglish =
-    activeProfile.sex === 'f'
-      ? 'May God have mercy on her'
-      : 'May God have mercy on him'
+    activeProfile.sex === 'f' ? 'الله يرحمها' 
+    : activeProfile.sex === 'm' ? 'الله يرحمه' 
+    : 'الله يرحمهم'
+  const mercyEnglish = 
+    activeProfile.sex === 'f' ? 'May God have mercy on her' 
+    : activeProfile.sex === 'm' ? 'May God have mercy on him'
+    : 'May God have mercy on them'
 
   return (
     <AnimatePresence>
@@ -74,7 +76,7 @@ export function ProfileModal() {
 
               {/* Arabic name */}
               {arName && enName && (
-                <p className="text-base text-black/50 mb-5" dir="rtl">
+                <p className="text-xl text-black/50 mb-5" dir="rtl">
                   {arName}
                 </p>
               )}
@@ -101,7 +103,7 @@ export function ProfileModal() {
                 <p className="text-base text-black/70 mb-0.5" dir="rtl">
                   {mercyArabic}
                 </p>
-                <p className="text-xs text-black/40 italic">
+                <p className="text-xs text-black/40">
                   {mercyEnglish}
                 </p>
               </div>

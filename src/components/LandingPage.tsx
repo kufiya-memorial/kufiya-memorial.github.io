@@ -53,7 +53,7 @@ export function LandingPage() {
             transition={{ duration: 0.8, delay: 0.8, ease: [0.22, 1, 0.36, 1] }}
             className="text-base md:text-lg text-black/50 mb-10 max-w-md text-center leading-relaxed font-light"
           >
-            In honour of every life taken since 7 October 2023.
+            In memory of every person killed in Israel's genocide on Gaza, since 7 October 2023.
           </motion.p>
 
           {clicked && isLoading ? (

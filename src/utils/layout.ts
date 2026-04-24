@@ -6,86 +6,131 @@ export interface PipTransform {
   y: number;
   rotationZ: number;
   isGhost: boolean;
+  isCore: boolean; // true = center area (gets real profiles), false = side band
 }
 
-export const HEADER_PX = 70;
-export const BORDER_PX = 95;
+export const HEADER_PX = 69;
+export const BORDER_PX = 96;
 
-/**
- * Grid fills the available screen area exactly.
- * 
- * 1. Compute rows from realCount, derive cols to match available aspect
- * 2. Add ~15% extra cols on each side for ghost bands
- * 3. Ghost pips scattered in the side bands with fading density
- * 4. Top/bottom rows are fully packed — no vertical ghosts
- */
 export function computeLayout(
   realCount: number,
   xSpacing: number,
   screenWidth: number,
   screenHeight: number,
-): { transforms: PipTransform[]; cols: number; rows: number } {
-  if (realCount <= 0) return { transforms: [], cols: 0, rows: 0 };
+): { transforms: PipTransform[]; cols: number; rows: number; bandCols: number } {
+  if (realCount <= 0) return { transforms: [], cols: 0, rows: 0, bandCols: 0 };
 
   const ySpacing = xSpacing / 2;
   const availH = screenHeight - HEADER_PX - BORDER_PX;
   const availAspect = screenWidth / availH;
 
-  // cols_core / (rows * 0.5) = availAspect → cols_core = rows * availAspect * 0.5
-  const coreColsPerRow = availAspect * 0.5;
+  // We want the TOTAL grid (core + bands) to match the screen aspect ratio.
+  // Grid width = cols * xSpacing, Grid height = rows * ySpacing = rows * xSpacing/2
+  // width/height = cols / (rows * 0.5) = 2 * cols / rows
+  // We want this to equal availAspect, so cols/rows = availAspect / 2
+  const totalColsPerRow = availAspect / 2;
 
-  // Find rows so core fits realCount
-  let rows = Math.ceil(Math.sqrt(realCount / coreColsPerRow));
-  let coreCols = Math.max(1, Math.round(rows * coreColsPerRow));
+  // Find rows so that we have enough total slots for realCount
+  // while maintaining the screen aspect ratio
+  let rows = Math.max(1, Math.ceil(Math.sqrt(realCount / totalColsPerRow)));
+  let cols = Math.max(1, Math.round(rows * totalColsPerRow));
+  while (cols * rows < realCount) {
+    rows++;
+    cols = Math.max(1, Math.round(rows * totalColsPerRow));
+  }
+
+  // Side bands: ~12% of cols on each side (ghost pips for density fade)
+  // But ensure core has enough columns for realCount
+  let bandCols = Math.max(2, Math.ceil(cols * 0.12));
+  let coreCols = cols - bandCols * 2;
+
+  // If core is too small to hold realCount, reduce bands
+  while (coreCols * rows < realCount && bandCols > 0) {
+    bandCols--;
+    coreCols = cols - bandCols * 2;
+  }
+
+  // If still not enough, add more rows
   while (coreCols * rows < realCount) {
     rows++;
-    coreCols = Math.max(1, Math.round(rows * coreColsPerRow));
+    cols = Math.max(1, Math.round(rows * totalColsPerRow));
+    coreCols = cols - bandCols * 2;
   }
-
-  // Add side bands: ~15% of coreCols on each side
-  const bandCols = Math.max(3, Math.ceil(coreCols * 0.15));
-  const cols = coreCols + bandCols * 2;
 
   const totalSlots = cols * rows;
-  const ghostCount = totalSlots - realCount;
 
-  // Ghost pips: only in the side bands (col < bandCols or col >= cols - bandCols)
-  // Density fades: more ghosts near the edge, fewer near the center
+  // Ghost assignment: band slots that aren't needed for real pips
+  // All band slots start as ghost. We un-ghost some near the core boundary
+  // to create a density fade, but only if we have enough real pips to fill them.
   const ghostIndices = new Set<number>();
 
-  if (ghostCount > 0) {
-    // Collect all slots in the side bands
-    const bandSlots: number[] = [];
-    for (let i = 0; i < totalSlots; i++) {
-      const col = i % cols;
-      if (col < bandCols || col >= cols - bandCols) {
-        bandSlots.push(i);
-      }
-    }
-
-    // Shuffle band slots randomly
-    for (let i = bandSlots.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [bandSlots[i], bandSlots[j]] = [bandSlots[j], bandSlots[i]];
-    }
-
-    // Pick ghostCount from the shuffled band slots
-    for (let i = 0; i < ghostCount && i < bandSlots.length; i++) {
-      ghostIndices.add(bandSlots[i]);
+  // Step 1: Mark all band slots as ghosts
+  for (let i = 0; i < totalSlots; i++) {
+    const col = i % cols;
+    if (col < bandCols || col >= cols - bandCols) {
+      ghostIndices.add(i);
     }
   }
 
-  const latticeW = cols * xSpacing;
-  const latticeH = rows * ySpacing;
-  console.log('[LAYOUT] coreCols=', coreCols, 'bandCols=', bandCols, 'totalCols=', cols,
-    'rows=', rows, 'ghosts=', ghostCount, '(placed', ghostIndices.size, ')',
-    'lattice=', latticeW.toFixed(1), 'x', latticeH.toFixed(1));
+  // Step 2: Un-ghost band slots with density fade (more near core, fewer at edges)
+  const bandSlotsByCol: number[][] = Array.from({ length: bandCols }, () => []);
+  for (let i = 0; i < totalSlots; i++) {
+    const col = i % cols;
+    if (col < bandCols) {
+      bandSlotsByCol[col].push(i);
+    } else if (col >= cols - bandCols) {
+      bandSlotsByCol[cols - 1 - col].push(i);
+    }
+  }
 
+  for (let b = 0; b < bandCols; b++) {
+    const distFromCore = bandCols - 1 - b; // 0 = closest to core
+    const realFrac = 0.8 - (distFromCore / Math.max(bandCols - 1, 1)) * 0.7;
+    const slots = bandSlotsByCol[b];
+    // Shuffle
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [slots[i], slots[j]] = [slots[j], slots[i]];
+    }
+    const realCount2 = Math.floor(slots.length * realFrac);
+    for (let i = 0; i < realCount2; i++) {
+      ghostIndices.delete(slots[i]);
+    }
+  }
+
+  // Step 3: Fade out core overflow at the bottom-right.
+  // If there are X extra core slots beyond realCount, take the last 2X
+  // core slots and alternate: keep, ghost, keep, ghost — creating a
+  // gradual density fade instead of a hard cutoff.
+  const coreOverflow = coreCols * rows - realCount;
+  if (coreOverflow > 0) {
+    const fadeZone = coreOverflow * 2;
+    // Collect core slot indices in order (top-left to bottom-right)
+    const coreSlots: number[] = [];
+    for (let i = 0; i < totalSlots; i++) {
+      const col = i % cols;
+      if (col >= bandCols && col < cols - bandCols && !ghostIndices.has(i)) {
+        coreSlots.push(i);
+      }
+    }
+    // Take the last fadeZone slots and ghost every other one
+    const fadeStart = Math.max(0, coreSlots.length - fadeZone);
+    let ghosted = 0;
+    for (let i = fadeStart; i < coreSlots.length; i++) {
+      if (i % 2 === 1) {
+        ghostIndices.add(coreSlots[i]);
+        ghosted++;
+      }
+    }
+  }
+
+  // Build transforms
   const transforms: PipTransform[] = [];
   for (let i = 0; i < totalSlots; i++) {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const xOffset = row % 2 === 1 ? 0.5 * xSpacing : 0;
+    const isCore = col >= bandCols && col < cols - bandCols;
 
     transforms.push({
       index: i,
@@ -93,16 +138,21 @@ export function computeLayout(
       y: row * ySpacing,
       rotationZ: row % 2 === 0 ? Math.PI / 4 : -Math.PI / 4,
       isGhost: ghostIndices.has(i),
+      isCore,
     });
   }
 
-  return { transforms, cols, rows };
+  return { transforms, cols, rows, bandCols };
 }
 
 export function matchesFilter(profile: Profile, filters: Filters): boolean {
   const age = profile.age;
+  const ageFilterActive = filters.ageRange.min > 0 || filters.ageRange.max < 120;
   if (age !== null) {
     if (age < filters.ageRange.min || age > filters.ageRange.max) return false;
+  } else if (ageFilterActive) {
+    // Unknown age doesn't match when age filter is active
+    return false;
   }
   if (filters.sex === 'unknown') {
     if (profile.sex !== '') return false;
@@ -122,7 +172,7 @@ export function computeLineConnections(
   const connections: [number, number][] = [];
 
   for (let i = 0; i < total; i++) {
-    if (transforms[i].isGhost) continue;
+    if (transforms[i].isGhost || !transforms[i].isCore) continue;
 
     const row = Math.floor(i / cols);
     const col = i % cols;
@@ -142,11 +192,11 @@ export function computeLineConnections(
 
     if (t1Col >= 0 && t1Col < cols) {
       const idx = nextRowStart + t1Col;
-      if (idx < total && !transforms[idx].isGhost) connections.push([i, idx]);
+      if (idx < total && !transforms[idx].isGhost && transforms[idx].isCore) connections.push([i, idx]);
     }
     if (t2Col >= 0 && t2Col < cols) {
       const idx = nextRowStart + t2Col;
-      if (idx < total && !transforms[idx].isGhost) connections.push([i, idx]);
+      if (idx < total && !transforms[idx].isGhost && transforms[idx].isCore) connections.push([i, idx]);
     }
   }
 

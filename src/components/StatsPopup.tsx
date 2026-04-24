@@ -55,7 +55,7 @@ export function StatsPopup() {
               <p>
                 <span className="text-black font-medium">Hirbawi</span>, the last authentic
                 Palestinian kufiya factory in Palestine, takes one hour to weave a single kufiya.
-                If Hirbawi made one kufiya for every life taken, it would take{' '}
+                If Hirbawi made one kufiya for every life taken and worked 24 hours a day, it would take{' '}
                 <span className="text-black font-medium">
                   {stats.totalDays.toLocaleString()} days
                 </span>{' '}

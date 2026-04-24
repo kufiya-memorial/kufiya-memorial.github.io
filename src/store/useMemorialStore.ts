@@ -69,7 +69,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000): Promise<R
 export const useMemorialStore = create<MemorialStore>((set) => ({
   rawProfiles: [],
   gazaSummary: null,
-  filters: { ageRange: { min: 0, max: 100 }, sex: 'all' },
+  filters: { ageRange: { min: 0, max: 120 }, sex: 'all' },
   activeProfile: null,
   appState: 'LANDING',
   isLoading: false,

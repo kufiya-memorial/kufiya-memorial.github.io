@@ -15,12 +15,16 @@ export function CameraControls({ visible }: Props) {
   const { camera, size } = useThree()
   const rawProfiles = useMemorialStore((s) => s.rawProfiles)
   const setZoomComplete = useMemorialStore((s) => s.setZoomComplete)
+  const zoomComplete = useMemorialStore((s) => s.zoomComplete)
+  const appState = useMemorialStore((s) => s.appState)
   const count = rawProfiles.length
   const hasSetup = useRef(false)
   const animState = useRef<'idle' | 'waiting' | 'zooming' | 'done'>('idle')
   const waitStart = useRef(0)
   const maxZRef = useRef(500)
   const targetZRef = useRef(0)
+  // Bounds in world space that the camera target must stay within
+  // so the lattice always fills the visible area
   const boundsRef = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 })
 
   const aspect = size.width / size.height
@@ -39,17 +43,21 @@ export function CameraControls({ visible }: Props) {
     const fovRad = (cam.fov * Math.PI) / 180
     const halfTan = Math.tan(fovRad / 2)
 
+    // Available screen fraction (between header and border)
     const availH = size.height - HEADER_PX - BORDER_PX
     const availFrac = availH / size.height
 
+    // Camera Z to fit the lattice vertically between header and border.
+    // Horizontal overflow into bands is fine — they fade out at the edges.
     const zH = latticeH / (2 * halfTan * availFrac)
-    const zW = latticeW / (2 * halfTan * aspect)
-    const fullZ = Math.min(zW, zH)
+    const fullZ = zH
 
+    // The camera sees the full screen, but the lattice only occupies the
+    // available portion. Offset the camera Y so the lattice is centered
+    // between header and border (not centered on screen).
     const totalVisH = 2 * fullZ * halfTan
     const yOffset = ((HEADER_PX - BORDER_PX) / 2 / size.height) * totalVisH
 
-    // Start very zoomed in — pips clearly visible, feels like a real kufiya
     const startZ = fullZ * 0.15
     camera.position.set(cx, cy - yOffset, startZ)
 
@@ -77,14 +85,12 @@ export function CameraControls({ visible }: Props) {
     const controls = controlsRef.current
     if (!controls || !hasSetup.current) return
 
-    // Wait 2s at zoomed-in view
     if (animState.current === 'waiting') {
       if (performance.now() - waitStart.current > 2000) {
         animState.current = 'zooming'
       }
     }
 
-    // Slow zoom out
     if (animState.current === 'zooming') {
       const z = camera.position.z
       const target = targetZRef.current
@@ -98,29 +104,63 @@ export function CameraControls({ visible }: Props) {
       controls.update()
     }
 
-    // Pan clamping
+    // Pan clamping: keep the lattice filling the visible area at all zoom levels.
     const b = boundsRef.current
     const t = controls.target as Vector3
     const cam = camera as any
     const z = camera.position.z
     const fovRad = (cam.fov * Math.PI) / 180
-    const visH = 2 * z * Math.tan(fovRad / 2)
-    const visW = visH * aspect
-    const hw = visW / 2
-    const hh = visH / 2
+    const halfTan = Math.tan(fovRad / 2)
+    const totalVisH = 2 * z * halfTan
+    const totalVisW = totalVisH * aspect
+
+    // The header and border cover portions of the visible area.
+    const headerWorld = (HEADER_PX / size.height) * totalVisH
+    const borderWorld = (BORDER_PX / size.height) * totalVisH
+
+    // Effective visible area for the lattice (excluding chrome)
+    const effVisW = totalVisW
+    const effVisH = totalVisH - headerWorld - borderWorld
+
     const lw = b.maxX - b.minX
     const lh = b.maxY - b.minY
 
-    t.x = lw <= visW ? (b.minX + b.maxX) / 2 : Math.max(b.minX + hw, Math.min(b.maxX - hw, t.x))
-    t.y = lh <= visH ? (b.minY + b.maxY) / 2 : Math.max(b.minY + hh, Math.min(b.maxY - hh, t.y))
+    // Y shift to account for asymmetric header/border
+    const yShift = (borderWorld - headerWorld) / 2
+
+    // At max zoom, lock to center. When zoomed in, hard-clamp to lattice bounds.
+    const atMaxZoom = z >= targetZRef.current - 1
+
+    if (atMaxZoom || effVisW >= lw) {
+      t.x = (b.minX + b.maxX) / 2
+    } else {
+      const minX = b.minX + effVisW / 2
+      const maxX = b.maxX - effVisW / 2
+      if (t.x < minX) t.x = minX
+      else if (t.x > maxX) t.x = maxX
+    }
+
+    if (atMaxZoom || effVisH >= lh) {
+      t.y = (b.minY + b.maxY) / 2 + yShift
+    } else {
+      const minY = b.minY + effVisH / 2 + yShift
+      const maxY = b.maxY - effVisH / 2 + yShift
+      if (t.y < minY) t.y = minY
+      else if (t.y > maxY) t.y = maxY
+    }
 
     camera.position.x = t.x
     camera.position.y = t.y
+
+    controls.update()
   })
+
+  const zoomingIn = appState === 'EXPLORING' && !zoomComplete
 
   return (
     <MapControlsImpl
       ref={controlsRef}
+      enabled={!zoomingIn}
       enableRotate={false}
       minPolarAngle={Math.PI / 2}
       maxPolarAngle={Math.PI / 2}
