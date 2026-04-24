@@ -48,7 +48,7 @@ export function StatsPopup() {
               {count.toLocaleString()}
             </p>
             <p className="text-sm text-black/50 mb-8">
-              recorded lives taken in Gaza
+              recorded lives taken by Israel
             </p>
 
             <div className="space-y-5 text-sm text-black/60 leading-relaxed text-left mb-8">
